@@ -29,6 +29,75 @@ const COLORS = {
   title: "#ffcc00",
 };
 
+// --- Audio ---
+function getAudioCtx(ref: React.MutableRefObject<AudioContext | null>): AudioContext {
+  if (!ref.current) ref.current = new AudioContext();
+  return ref.current;
+}
+
+function playNote(ctx: AudioContext, freq: number, type: OscillatorType, start: number, dur: number, vol = 0.15) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(vol, start);
+  gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(start);
+  osc.stop(start + dur);
+}
+
+function playWaveSound(ctx: AudioContext) {
+  const t = ctx.currentTime;
+  // Ascending arpeggio C5→E5→G5→C6
+  [523, 659, 784, 1047].forEach((f, i) => playNote(ctx, f, "square", t + i * 0.08, 0.12, 0.12));
+}
+
+function playRescueSound(ctx: AudioContext) {
+  const t = ctx.currentTime;
+  playNote(ctx, 262, "triangle", t, 0.15, 0.18);
+  playNote(ctx, 330, "triangle", t + 0.12, 0.18, 0.18);
+}
+
+function playSharkSound(ctx: AudioContext) {
+  const t = ctx.currentTime;
+  const osc1 = ctx.createOscillator();
+  const osc2 = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc1.type = "sawtooth";
+  osc2.type = "square";
+  osc1.frequency.setValueAtTime(800, t);
+  osc1.frequency.exponentialRampToValueAtTime(200, t + 0.3);
+  osc2.frequency.setValueAtTime(850, t);
+  osc2.frequency.exponentialRampToValueAtTime(180, t + 0.3);
+  gain.gain.setValueAtTime(0.2, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+  osc1.connect(gain);
+  osc2.connect(gain);
+  gain.connect(ctx.destination);
+  osc1.start(t); osc1.stop(t + 0.35);
+  osc2.start(t); osc2.stop(t + 0.35);
+}
+
+function playSharkHitFollower(ctx: AudioContext) {
+  const t = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(600, t);
+  osc.frequency.exponentialRampToValueAtTime(250, t + 0.15);
+  gain.gain.setValueAtTime(0.12, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(t); osc.stop(t + 0.2);
+}
+
+function playGameOverSound(ctx: AudioContext) {
+  const t = ctx.currentTime;
+  [330, 262, 220].forEach((f, i) => playNote(ctx, f, "square", t + i * 0.2, 0.25, 0.15));
+}
+
+// --- Drawing ---
 function drawPixelRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string) {
   ctx.fillStyle = color;
   ctx.fillRect(Math.floor(x), Math.floor(y), w, h);
@@ -49,24 +118,18 @@ function drawSurfer(ctx: CanvasRenderingContext2D, x: number, y: number, frame: 
 }
 
 function drawSwimmer(ctx: CanvasRenderingContext2D, x: number, y: number, frame: number) {
-  // Head
   drawPixelRect(ctx, x + 5, y, 6, 5, COLORS.swimmerSkin);
-  // Eyes
   drawPixelRect(ctx, x + 6, y + 2, 1, 1, COLORS.ocean);
   drawPixelRect(ctx, x + 9, y + 2, 1, 1, COLORS.ocean);
-  // Body in water
   drawPixelRect(ctx, x + 4, y + 5, 8, 4, COLORS.swimmer);
-  // Arms swimming
   const armOff = frame % 4 < 2 ? 0 : 2;
   drawPixelRect(ctx, x + 1, y + 5 + armOff, 3, 2, COLORS.swimmerSkin);
   drawPixelRect(ctx, x + 12, y + 7 - armOff, 3, 2, COLORS.swimmerSkin);
-  // Water splash
   drawPixelRect(ctx, x + 2, y + 9, 12, 3, COLORS.wave);
   drawPixelRect(ctx, x + 4, y + 10, 2, 2, COLORS.waveFoam);
 }
 
 function drawFollower(ctx: CanvasRenderingContext2D, x: number, y: number, frame: number) {
-  // Mini surfer on board
   drawPixelRect(ctx, x + 3, y + 10, 10, 3, COLORS.surferBoard);
   drawPixelRect(ctx, x + 5, y + 1, 6, 4, COLORS.swimmerSkin);
   drawPixelRect(ctx, x + 6, y + 2, 1, 1, COLORS.ocean);
@@ -112,6 +175,7 @@ function drawOceanBg(ctx: CanvasRenderingContext2D, scrollY: number) {
 
 export default function SurferGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const audioRef = useRef<AudioContext | null>(null);
   const [gameState, setGameState] = useState<"title" | "playing" | "gameover">("title");
   const stateRef = useRef({
     surferX: CANVAS_W / 2 - SURFER_W / 2,
@@ -142,6 +206,8 @@ export default function SurferGame() {
     s.posHistory = [];
     s.savedCount = 0;
     setGameState("playing");
+    // Ensure audio context is ready
+    getAudioCtx(audioRef);
   }, []);
 
   useEffect(() => {
@@ -211,15 +277,12 @@ export default function SurferGame() {
         }
         s.surferX = Math.max(0, Math.min(CANVAS_W - SURFER_W, s.surferX));
 
-        // Record position history for follower chain
         s.posHistory.push(s.surferX);
-        // Keep history bounded
         const maxHistory = (s.followers.length + 2) * FOLLOW_DELAY + 10;
         if (s.posHistory.length > maxHistory) {
           s.posHistory = s.posHistory.slice(s.posHistory.length - maxHistory);
         }
 
-        // Update follower positions from history
         for (let i = 0; i < s.followers.length; i++) {
           const histIdx = s.posHistory.length - 1 - (i + 1) * FOLLOW_DELAY;
           if (histIdx >= 0) {
@@ -228,26 +291,18 @@ export default function SurferGame() {
           s.followers[i].y = CANVAS_H - 40 + (i + 1) * 18;
         }
 
-        // Spawn
         if (s.frame % SPAWN_INTERVAL === 0) {
           const r = Math.random();
           const type: Obj["type"] = r < 0.91 ? "shark" : r < 0.967 ? "wave" : "swimmer";
-          s.objects.push({
-            x: Math.random() * (CANVAS_W - OBJ_SIZE),
-            y: -OBJ_SIZE,
-            type,
-            frame: 0,
-          });
+          s.objects.push({ x: Math.random() * (CANVAS_W - OBJ_SIZE), y: -OBJ_SIZE, type, frame: 0 });
         }
 
-        // Update objects
         const surferBox = { x: s.surferX + 2, y: CANVAS_H - 40, w: SURFER_W - 4, h: SURFER_H - 2 };
         s.objects = s.objects.filter((o) => {
           o.y += o.type === "shark" ? 2.2 : o.type === "swimmer" ? 1.5 : 1.8;
           o.frame++;
           const oBox = { x: o.x + 1, y: o.y + 1, w: OBJ_SIZE - 2, h: OBJ_SIZE - 2 };
 
-          // Check collision with main surfer
           if (
             surferBox.x < oBox.x + oBox.w &&
             surferBox.x + surferBox.w > oBox.x &&
@@ -256,23 +311,26 @@ export default function SurferGame() {
           ) {
             if (o.type === "wave") {
               s.score++;
+              if (audioRef.current) playWaveSound(audioRef.current);
             } else if (o.type === "swimmer") {
               s.savedCount++;
               s.followers.push({ x: s.surferX, y: CANVAS_H - 40 + s.followers.length * 18 });
+              if (audioRef.current) playRescueSound(audioRef.current);
             } else {
               s.lives--;
               s.flashTimer = 15;
+              if (audioRef.current) playSharkSound(audioRef.current);
               if (s.lives <= 0) {
                 s.highScore = Math.max(s.highScore, s.score);
                 s.bestSaved = Math.max(s.bestSaved, s.savedCount);
                 s.gameState = "gameover";
                 setGameState("gameover");
+                if (audioRef.current) playGameOverSound(audioRef.current);
               }
             }
             return false;
           }
 
-          // Check collision with followers (sharks only)
           if (o.type === "shark") {
             for (let fi = 0; fi < s.followers.length; fi++) {
               const f = s.followers[fi];
@@ -283,9 +341,9 @@ export default function SurferGame() {
                 fBox.y < oBox.y + oBox.h &&
                 fBox.y + fBox.h > oBox.y
               ) {
-                // Remove this follower and all behind
                 s.followers = s.followers.slice(0, fi);
                 s.flashTimer = 10;
+                if (audioRef.current) playSharkHitFollower(audioRef.current);
                 return false;
               }
             }
@@ -305,20 +363,15 @@ export default function SurferGame() {
           else drawShark(ctx, o.x, o.y, o.frame);
         });
 
-        // Draw followers (back to front)
         for (let i = s.followers.length - 1; i >= 0; i--) {
           const f = s.followers[i];
-          if (f.y < CANVAS_H) {
-            drawFollower(ctx, f.x, f.y, s.frame + i * 3);
-          }
+          if (f.y < CANVAS_H) drawFollower(ctx, f.x, f.y, s.frame + i * 3);
         }
 
-        // Draw surfer
         if (s.flashTimer === 0 || s.frame % 4 < 2) {
           drawSurfer(ctx, s.surferX, CANVAS_H - 40, s.frame);
         }
 
-        // HUD
         ctx.font = "8px 'Press Start 2P'";
         ctx.fillStyle = COLORS.hud;
         ctx.fillText(`SCORE:${s.score}`, 4, 12);
@@ -327,7 +380,6 @@ export default function SurferGame() {
           ctx.fillStyle = COLORS.swimmer;
           ctx.fillText(`CHAIN:${s.followers.length}`, 4, 36);
         }
-        // Lives as hearts
         for (let i = 0; i < s.lives; i++) {
           drawPixelRect(ctx, CANVAS_W - 14 - i * 14, 4, 4, 4, COLORS.gameover);
           drawPixelRect(ctx, CANVAS_W - 18 - i * 14, 4, 4, 4, COLORS.gameover);
