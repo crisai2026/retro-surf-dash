@@ -293,7 +293,7 @@ export default function SurferGame() {
 
         if (s.frame % SPAWN_INTERVAL === 0) {
           const r = Math.random();
-          const type: Obj["type"] = r < 0.91 ? "shark" : r < 0.967 ? "wave" : "swimmer";
+          const type: Obj["type"] = r < 0.55 ? "shark" : r < 0.965 ? "wave" : "swimmer";
           s.objects.push({ x: Math.random() * (CANVAS_W - OBJ_SIZE), y: -OBJ_SIZE, type, frame: 0 });
         }
 
@@ -314,6 +314,7 @@ export default function SurferGame() {
               if (audioRef.current) playWaveSound(audioRef.current);
             } else if (o.type === "swimmer") {
               s.savedCount++;
+              s.lives++;
               s.followers.push({ x: s.surferX, y: CANVAS_H - 40 + s.followers.length * 18 });
               if (audioRef.current) playRescueSound(audioRef.current);
             } else {
