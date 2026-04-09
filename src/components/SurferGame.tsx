@@ -202,7 +202,7 @@ export default function SurferGame() {
         // Update objects
         const surferBox = { x: s.surferX + 2, y: CANVAS_H - 40, w: SURFER_W - 4, h: SURFER_H - 2 };
         s.objects = s.objects.filter((o) => {
-          o.y += type === "shark" ? 2.2 : 1.8;
+          // speed already applied below
           o.y += o.type === "shark" ? 2.2 : 1.8;
           o.frame++;
           // Collision

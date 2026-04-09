@@ -1,3 +1,4 @@
+// @ts-ignore
 import "@fontsource/press-start-2p";
 import SurferGame from "@/components/SurferGame";
 
