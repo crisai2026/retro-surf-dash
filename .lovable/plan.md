@@ -1,35 +1,44 @@
 
 
-## Plan: More Sharks, Fewer Waves, Swimmer Rescue Chain
+## Plan: Add Retro 8-Bit Sound Effects
 
-All changes in `src/components/SurferGame.tsx`.
+All changes in `src/components/SurferGame.tsx`. No external dependencies needed — we'll use the Web Audio API to synthesize classic 8-bit sounds programmatically.
 
-### 1. Spawn rate changes
-- Change `SPAWN_INTERVAL` from 40 to **4** (10x more spawns overall).
-- Change spawn probability: currently 40% shark / 60% wave. New ratio: ~91% shark, ~5.7% wave, ~3.3% swimmer. This means waves spawn at roughly 5% less than before in absolute terms, while sharks dominate.
+### 1. Create an AudioContext and sound functions
 
-### 2. New "swimmer" object type
-- Add `"swimmer"` to the `Obj` type union.
-- Draw a new `drawSwimmer` pixel-art function — a small person in the water with a different color (e.g., cyan/pink) to distinguish from the player surfer.
-- Swimmers scroll down like waves/sharks at speed ~1.5.
+Add a lazy-initialized `AudioContext` (created on first user interaction to comply with browser autoplay policies). Create three synthesized sound functions:
 
-### 3. Surfer chain (conga line) mechanic
-- Add a `followers` array to game state: `{ x: number; y: number }[]` — each is a rescued swimmer trailing behind.
-- When the player collides with a swimmer, add a new follower to the chain.
-- Each follower follows the position of the one ahead of it (or the player) with a delay, creating a snake-like trail.
-- Followers are drawn using the same `drawSwimmer` sprite, positioned below/behind the lead surfer.
-- Track `savedCount` in state for total swimmers rescued.
+**`playWaveSound()`** — Super happy wave catch:
+- Rapid ascending arpeggio (C5→E5→G5→C6) using square wave oscillator
+- Each note ~80ms, bright and cheerful
+- Like a classic power-up jingle
 
-### 4. Collision for followers
-- Sharks hitting any follower in the chain removes that follower (and all behind it) — adding risk to having a long chain.
+**`playRescueSound()`** — Happy "yay" rescue:
+- Two-tone ascending chime (C4→E4) with triangle wave
+- Slightly longer notes (~120ms), warmer tone
+- Add a quick vibrato wobble for personality
 
-### 5. HUD updates
-- Display `SAVED: X` count alongside score.
-- Show current chain length.
-- Game over screen shows total swimmers saved.
+**`playSharkSound()`** — Scream-like shark hit:
+- Descending pitch sweep from ~800Hz to ~200Hz using sawtooth wave
+- ~300ms duration with high gain for intensity
+- Add noise-like quality by layering a second detuned oscillator
+- Mimics an 8-bit scream/death sound
+
+### 2. Wire sounds to collision events
+
+In the game loop's collision detection (around lines 230-260):
+- Wave collision → `playWaveSound()`
+- Swimmer collision → `playRescueSound()`  
+- Shark collision (player) → `playSharkSound()`
+- Shark collision (follower) → shorter version of shark sound
+
+### 3. Game over sound
+
+Add a `playGameOverSound()` — descending three-note sequence (E4→C4→A3) to play when lives reach 0.
 
 ### Technical details
-- Follower positions stored as a history buffer of the player's past positions; each follower reads from `N * spacing` frames back.
-- Position history: push `surferX` each frame into a ring buffer array; follower `i` reads from `history[history.length - (i+1) * FOLLOW_DELAY]`.
-- Spawn logic: `Math.random()` < 0.91 → shark, < 0.967 → wave, else → swimmer.
+- `AudioContext` stored in a `useRef` to persist across renders
+- All sounds use `OscillatorNode` + `GainNode` with exponential ramp-downs for clean cutoffs
+- Square/sawtooth waves give authentic 8-bit character
+- No external files or API calls needed
 
