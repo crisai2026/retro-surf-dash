@@ -365,6 +365,13 @@ export default function SurferGame() {
 
           return o.y < CANVAS_H + 20;
         });
+
+        // Level-up check
+        const newLevel = Math.floor(s.score / 25);
+        if (newLevel > s.level) {
+          s.level = newLevel;
+          s.levelUpTimer = 90;
+        }
       }
 
       // Draw
@@ -403,6 +410,14 @@ export default function SurferGame() {
           drawPixelRect(ctx, CANVAS_W - 18 - i * 14, 4, 4, 4, COLORS.gameover);
           drawPixelRect(ctx, CANVAS_W - 18 - i * 14, 6, 8, 4, COLORS.gameover);
           drawPixelRect(ctx, CANVAS_W - 16 - i * 14, 10, 4, 2, COLORS.gameover);
+        }
+
+        if (s.levelUpTimer > 0) {
+          ctx.font = "12px 'Press Start 2P'";
+          ctx.textAlign = "center";
+          ctx.fillStyle = COLORS.title;
+          ctx.fillText("LEVEL UP!", CANVAS_W / 2, CANVAS_H / 2 - 10);
+          ctx.textAlign = "left";
         }
       }
 
