@@ -192,6 +192,8 @@ export default function SurferGame() {
     posHistory: [] as number[],
     savedCount: 0,
     bestSaved: 0,
+    level: 0,
+    levelUpTimer: 0,
   });
 
   const startGame = useCallback(() => {
@@ -205,6 +207,8 @@ export default function SurferGame() {
     s.followers = [];
     s.posHistory = [];
     s.savedCount = 0;
+    s.level = 0;
+    s.levelUpTimer = 0;
     setGameState("playing");
     // Ensure audio context is ready
     getAudioCtx(audioRef);
@@ -266,6 +270,7 @@ export default function SurferGame() {
       s.frame++;
       s.scrollY += 2;
       if (s.flashTimer > 0) s.flashTimer--;
+      if (s.levelUpTimer > 0) s.levelUpTimer--;
 
       if (s.gameState === "playing") {
         const speed = 3;
@@ -293,13 +298,16 @@ export default function SurferGame() {
 
         if (s.frame % SPAWN_INTERVAL === 0) {
           const r = Math.random();
-          const type: Obj["type"] = r < 0.55 ? "shark" : r < 0.965 ? "wave" : "swimmer";
+          const sharkThresh = Math.min(0.35 + 0.02 * s.level, 0.60);
+          const waveThresh = sharkThresh + 0.50;
+          const type: Obj["type"] = r < sharkThresh ? "shark" : r < waveThresh ? "wave" : "swimmer";
           s.objects.push({ x: Math.random() * (CANVAS_W - OBJ_SIZE), y: -OBJ_SIZE, type, frame: 0 });
         }
 
         const surferBox = { x: s.surferX + 2, y: CANVAS_H - 40, w: SURFER_W - 4, h: SURFER_H - 2 };
         s.objects = s.objects.filter((o) => {
-          o.y += o.type === "shark" ? 2.2 : o.type === "swimmer" ? 1.5 : 1.8;
+          const speedMult = 1 + s.level * 0.1;
+          o.y += (o.type === "shark" ? 2.2 : o.type === "swimmer" ? 1.5 : 1.8) * speedMult;
           o.frame++;
           const oBox = { x: o.x + 1, y: o.y + 1, w: OBJ_SIZE - 2, h: OBJ_SIZE - 2 };
 
@@ -310,11 +318,16 @@ export default function SurferGame() {
             surferBox.y + surferBox.h > oBox.y
           ) {
             if (o.type === "wave") {
-              s.score++;
+              const wavePoints = 1 + Math.floor(s.followers.length / 2);
+              s.score += wavePoints;
               if (audioRef.current) playWaveSound(audioRef.current);
             } else if (o.type === "swimmer") {
               s.savedCount++;
-              s.lives++;
+              if (s.lives < 5) {
+                s.lives++;
+              } else {
+                s.score += 5;
+              }
               s.followers.push({ x: s.surferX, y: CANVAS_H - 40 + s.followers.length * 18 });
               if (audioRef.current) playRescueSound(audioRef.current);
             } else {
