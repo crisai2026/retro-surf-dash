@@ -345,14 +345,6 @@ export default function SurferGame() {
             return false;
           }
 
-          // Level-up check
-          const newLevel = Math.floor(s.score / 25);
-          if (newLevel > s.level) {
-            s.level = newLevel;
-            s.levelUpTimer = 90;
-          }
-          }
-
           if (o.type === "shark") {
             for (let fi = 0; fi < s.followers.length; fi++) {
               const f = s.followers[fi];
