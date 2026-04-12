@@ -345,6 +345,14 @@ export default function SurferGame() {
             return false;
           }
 
+          // Level-up check
+          const newLevel = Math.floor(s.score / 25);
+          if (newLevel > s.level) {
+            s.level = newLevel;
+            s.levelUpTimer = 90;
+          }
+          }
+
           if (o.type === "shark") {
             for (let fi = 0; fi < s.followers.length; fi++) {
               const f = s.followers[fi];
@@ -389,10 +397,14 @@ export default function SurferGame() {
         ctx.font = "8px 'Press Start 2P'";
         ctx.fillStyle = COLORS.hud;
         ctx.fillText(`SCORE:${s.score}`, 4, 12);
-        ctx.fillText(`SAVED:${s.savedCount}`, 4, 24);
+        const nextMilestone = (Math.floor(s.score / 25) + 1) * 25;
+        ctx.fillStyle = COLORS.hudDim;
+        ctx.fillText(`NEXT:${nextMilestone}`, 4, 24);
+        ctx.fillStyle = COLORS.hud;
+        ctx.fillText(`SAVED:${s.savedCount}`, 4, 36);
         if (s.followers.length > 0) {
           ctx.fillStyle = COLORS.swimmer;
-          ctx.fillText(`CHAIN:${s.followers.length}`, 4, 36);
+          ctx.fillText(`CHAIN:${s.followers.length}`, 4, 48);
         }
         for (let i = 0; i < s.lives; i++) {
           drawPixelRect(ctx, CANVAS_W - 14 - i * 14, 4, 4, 4, COLORS.gameover);
