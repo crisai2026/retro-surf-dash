@@ -1,44 +1,39 @@
 
 
-## Plan: Add Retro 8-Bit Sound Effects
+## Plan: Gameplay Overhaul — Difficulty, Lives Cap, Chain Multiplier, Rebalanced Spawns
 
-All changes in `src/components/SurferGame.tsx`. No external dependencies needed — we'll use the Web Audio API to synthesize classic 8-bit sounds programmatically.
+All changes in `src/components/SurferGame.tsx`.
 
-### 1. Create an AudioContext and sound functions
+### 1. Lives cap at 5
+- When rescuing a swimmer: if `s.lives >= 5`, add +5 to score instead of `s.lives++`.
+- Still add follower to chain regardless.
 
-Add a lazy-initialized `AudioContext` (created on first user interaction to comply with browser autoplay policies). Create three synthesized sound functions:
+### 2. Progressive difficulty every 25 points
+- Add `level` to state (starts at 0). Recalculate as `Math.floor(s.score / 25)`.
+- When level increases, set a `levelUpTimer = 90` to flash "LEVEL UP!" on screen.
+- Object speeds multiplied by `1 + level * 0.1` (shark base 2.2, wave 1.8, swimmer 1.5 — all scale).
+- Shark spawn rate increases by `+0.02 * level` (capped so it doesn't exceed ~60%).
 
-**`playWaveSound()`** — Super happy wave catch:
-- Rapid ascending arpeggio (C5→E5→G5→C6) using square wave oscillator
-- Each note ~80ms, bright and cheerful
-- Like a classic power-up jingle
+### 3. HUD: "NEXT: X" display
+- Calculate `nextMilestone = (Math.floor(s.score / 25) + 1) * 25`.
+- Render below score text.
 
-**`playRescueSound()`** — Happy "yay" rescue:
-- Two-tone ascending chime (C4→E4) with triangle wave
-- Slightly longer notes (~120ms), warmer tone
-- Add a quick vibrato wobble for personality
+### 4. Chain multiplier for waves
+- Wave points = `1 + Math.floor(s.followers.length / 2)`.
+- Add to `s.score` accordingly.
 
-**`playSharkSound()`** — Scream-like shark hit:
-- Descending pitch sweep from ~800Hz to ~200Hz using sawtooth wave
-- ~300ms duration with high gain for intensity
-- Add noise-like quality by layering a second detuned oscillator
-- Mimics an 8-bit scream/death sound
+### 5. Rebalanced spawn rates
+- Change from `0.55 / 0.965 / 1.0` thresholds to:
+  - `r < 0.35` → shark
+  - `r < 0.85` → wave (50%)
+  - else → swimmer (15%)
+- Shark threshold adjusted dynamically: `0.35 + 0.02 * level`.
 
-### 2. Wire sounds to collision events
-
-In the game loop's collision detection (around lines 230-260):
-- Wave collision → `playWaveSound()`
-- Swimmer collision → `playRescueSound()`  
-- Shark collision (player) → `playSharkSound()`
-- Shark collision (follower) → shorter version of shark sound
-
-### 3. Game over sound
-
-Add a `playGameOverSound()` — descending three-note sequence (E4→C4→A3) to play when lives reach 0.
+### 6. "LEVEL UP!" flash
+- When `levelUpTimer > 0`, draw centered yellow text "LEVEL UP!" and decrement timer each frame.
 
 ### Technical details
-- `AudioContext` stored in a `useRef` to persist across renders
-- All sounds use `OscillatorNode` + `GainNode` with exponential ramp-downs for clean cutoffs
-- Square/sawtooth waves give authentic 8-bit character
-- No external files or API calls needed
+- Add `level`, `levelUpTimer` to `stateRef`.
+- Speed scaling applied inline in the object movement section: `o.y += baseSpeed * (1 + s.level * 0.1)`.
+- Spawn thresholds recalculated each spawn frame using current level.
 
