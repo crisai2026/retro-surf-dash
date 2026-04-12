@@ -192,6 +192,8 @@ export default function SurferGame() {
     posHistory: [] as number[],
     savedCount: 0,
     bestSaved: 0,
+    level: 0,
+    levelUpTimer: 0,
   });
 
   const startGame = useCallback(() => {
@@ -205,6 +207,8 @@ export default function SurferGame() {
     s.followers = [];
     s.posHistory = [];
     s.savedCount = 0;
+    s.level = 0;
+    s.levelUpTimer = 0;
     setGameState("playing");
     // Ensure audio context is ready
     getAudioCtx(audioRef);
@@ -266,6 +270,7 @@ export default function SurferGame() {
       s.frame++;
       s.scrollY += 2;
       if (s.flashTimer > 0) s.flashTimer--;
+      if (s.levelUpTimer > 0) s.levelUpTimer--;
 
       if (s.gameState === "playing") {
         const speed = 3;
@@ -293,13 +298,16 @@ export default function SurferGame() {
 
         if (s.frame % SPAWN_INTERVAL === 0) {
           const r = Math.random();
-          const type: Obj["type"] = r < 0.55 ? "shark" : r < 0.965 ? "wave" : "swimmer";
+          const sharkThresh = Math.min(0.35 + 0.02 * s.level, 0.60);
+          const waveThresh = sharkThresh + 0.50;
+          const type: Obj["type"] = r < sharkThresh ? "shark" : r < waveThresh ? "wave" : "swimmer";
           s.objects.push({ x: Math.random() * (CANVAS_W - OBJ_SIZE), y: -OBJ_SIZE, type, frame: 0 });
         }
 
         const surferBox = { x: s.surferX + 2, y: CANVAS_H - 40, w: SURFER_W - 4, h: SURFER_H - 2 };
         s.objects = s.objects.filter((o) => {
-          o.y += o.type === "shark" ? 2.2 : o.type === "swimmer" ? 1.5 : 1.8;
+          const speedMult = 1 + s.level * 0.1;
+          o.y += (o.type === "shark" ? 2.2 : o.type === "swimmer" ? 1.5 : 1.8) * speedMult;
           o.frame++;
           const oBox = { x: o.x + 1, y: o.y + 1, w: OBJ_SIZE - 2, h: OBJ_SIZE - 2 };
 
@@ -310,11 +318,16 @@ export default function SurferGame() {
             surferBox.y + surferBox.h > oBox.y
           ) {
             if (o.type === "wave") {
-              s.score++;
+              const wavePoints = 1 + Math.floor(s.followers.length / 2);
+              s.score += wavePoints;
               if (audioRef.current) playWaveSound(audioRef.current);
             } else if (o.type === "swimmer") {
               s.savedCount++;
-              s.lives++;
+              if (s.lives < 5) {
+                s.lives++;
+              } else {
+                s.score += 5;
+              }
               s.followers.push({ x: s.surferX, y: CANVAS_H - 40 + s.followers.length * 18 });
               if (audioRef.current) playRescueSound(audioRef.current);
             } else {
@@ -352,6 +365,13 @@ export default function SurferGame() {
 
           return o.y < CANVAS_H + 20;
         });
+
+        // Level-up check
+        const newLevel = Math.floor(s.score / 25);
+        if (newLevel > s.level) {
+          s.level = newLevel;
+          s.levelUpTimer = 90;
+        }
       }
 
       // Draw
@@ -376,16 +396,28 @@ export default function SurferGame() {
         ctx.font = "8px 'Press Start 2P'";
         ctx.fillStyle = COLORS.hud;
         ctx.fillText(`SCORE:${s.score}`, 4, 12);
-        ctx.fillText(`SAVED:${s.savedCount}`, 4, 24);
+        const nextMilestone = (Math.floor(s.score / 25) + 1) * 25;
+        ctx.fillStyle = COLORS.hudDim;
+        ctx.fillText(`NEXT:${nextMilestone}`, 4, 24);
+        ctx.fillStyle = COLORS.hud;
+        ctx.fillText(`SAVED:${s.savedCount}`, 4, 36);
         if (s.followers.length > 0) {
           ctx.fillStyle = COLORS.swimmer;
-          ctx.fillText(`CHAIN:${s.followers.length}`, 4, 36);
+          ctx.fillText(`CHAIN:${s.followers.length}`, 4, 48);
         }
         for (let i = 0; i < s.lives; i++) {
           drawPixelRect(ctx, CANVAS_W - 14 - i * 14, 4, 4, 4, COLORS.gameover);
           drawPixelRect(ctx, CANVAS_W - 18 - i * 14, 4, 4, 4, COLORS.gameover);
           drawPixelRect(ctx, CANVAS_W - 18 - i * 14, 6, 8, 4, COLORS.gameover);
           drawPixelRect(ctx, CANVAS_W - 16 - i * 14, 10, 4, 2, COLORS.gameover);
+        }
+
+        if (s.levelUpTimer > 0) {
+          ctx.font = "12px 'Press Start 2P'";
+          ctx.textAlign = "center";
+          ctx.fillStyle = COLORS.title;
+          ctx.fillText("LEVEL UP!", CANVAS_W / 2, CANVAS_H / 2 - 10);
+          ctx.textAlign = "left";
         }
       }
 
