@@ -383,6 +383,14 @@ export default function SurferGame() {
           ctx.fillText("LEVEL UP!", CANVAS_W / 2, CANVAS_H / 2 - 10);
           ctx.textAlign = "left";
         }
+        // On-screen pause button (top-right)
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
+        ctx.fillRect(CANVAS_W - 26, 2, 24, 20);
+        ctx.fillStyle = COLORS.hud;
+        ctx.font = "8px 'Press Start 2P'";
+        ctx.textAlign = "center";
+        ctx.fillText("II", CANVAS_W - 14, 16);
+        ctx.textAlign = "left";
       }
 
       // Pause overlay
@@ -394,8 +402,8 @@ export default function SurferGame() {
         ctx.fillStyle = COLORS.paused;
         ctx.fillText("PAUSED", CANVAS_W / 2, CANVAS_H / 2 - 10);
         ctx.font = "6px 'Press Start 2P'";
-        ctx.fillText("PRESS P TO", CANVAS_W / 2, CANVAS_H / 2 + 10);
-        ctx.fillText("CONTINUE", CANVAS_W / 2, CANVAS_H / 2 + 22);
+        ctx.fillText("PRESS P OR TAP", CANVAS_W / 2, CANVAS_H / 2 + 10);
+        ctx.fillText("TO CONTINUE", CANVAS_W / 2, CANVAS_H / 2 + 22);
         ctx.textAlign = "left";
       }
 
