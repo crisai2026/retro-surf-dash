@@ -194,8 +194,8 @@ export default function SurferGame() {
         if (s.keys.left) s.surferX -= speed;
         if (s.keys.right) s.surferX += speed;
         if (touchRef.current !== null) {
-          const target = touchRef.current - SURFER_W / 2;
-          s.surferX += (target - s.surferX) * 0.15;
+          const targetX = touchRef.current.startSurferX + (touchRef.current.currentTouchX - touchRef.current.startTouchX);
+          s.surferX += (targetX - s.surferX) * 0.35;
         }
         s.surferX = Math.max(0, Math.min(CANVAS_W - SURFER_W, s.surferX));
 
