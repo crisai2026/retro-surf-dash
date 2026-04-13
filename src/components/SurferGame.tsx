@@ -105,10 +105,14 @@ export default function SurferGame() {
     };
   }, [startGame]);
 
-  const touchRef = useRef<number | null>(null);
+  const touchRef = useRef<{ startTouchX: number; startSurferX: number; currentTouchX: number } | null>(null);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const getTouchX = (e: TouchEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      return (e.touches[0].clientX - rect.left) / (rect.width / CANVAS_W);
+    };
     const handleTouchStart = (e: TouchEvent) => {
       e.preventDefault();
       const s = stateRef.current;
@@ -118,8 +122,7 @@ export default function SurferGame() {
         return;
       }
       if (s.gameState === "charSelect") {
-        const rect = canvas.getBoundingClientRect();
-        const tx = (e.touches[0].clientX - rect.left) / (rect.width / CANVAS_W);
+        const tx = getTouchX(e);
         if (tx < CANVAS_W / 2) s.skin = "male";
         else s.skin = "female";
         startGame();
@@ -130,18 +133,31 @@ export default function SurferGame() {
         setGameState("charSelect");
         return;
       }
+      if (s.gameState === "playing") {
+        // Check pause button tap (top-right 24x24 region)
+        const rect = canvas.getBoundingClientRect();
+        const tx = (e.touches[0].clientX - rect.left) / (rect.width / CANVAS_W);
+        const ty = (e.touches[0].clientY - rect.top) / (rect.height / CANVAS_H);
+        if (tx > CANVAS_W - 28 && ty < 28) {
+          s.gameState = "paused";
+          setGameState("paused");
+          return;
+        }
+        const touchX = getTouchX(e);
+        touchRef.current = { startTouchX: touchX, startSurferX: s.surferX, currentTouchX: touchX };
+        return;
+      }
       if (s.gameState === "paused") {
         s.gameState = "playing";
         setGameState("playing");
         return;
       }
-      const rect = canvas.getBoundingClientRect();
-      touchRef.current = (e.touches[0].clientX - rect.left) / (rect.width / CANVAS_W);
     };
     const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault();
-      const rect = canvas.getBoundingClientRect();
-      touchRef.current = (e.touches[0].clientX - rect.left) / (rect.width / CANVAS_W);
+      if (touchRef.current) {
+        touchRef.current.currentTouchX = getTouchX(e);
+      }
     };
     const handleTouchEnd = (e: TouchEvent) => { e.preventDefault(); touchRef.current = null; };
     canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
