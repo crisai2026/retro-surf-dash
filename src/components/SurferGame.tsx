@@ -506,17 +506,20 @@ export default function SurferGame() {
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen gap-4 select-none">
+    <div className="flex flex-col items-center justify-center min-h-screen gap-4 select-none" style={{ touchAction: "none" }}>
       <canvas
         ref={canvasRef}
         width={CANVAS_W}
         height={CANVAS_H}
         style={{
-          width: CANVAS_W * SCALE,
-          height: CANVAS_H * SCALE,
+          width: `min(${CANVAS_W * SCALE}px, 100vw)`,
+          height: "auto",
+          aspectRatio: `${CANVAS_W}/${CANVAS_H}`,
+          maxHeight: "85vh",
           imageRendering: "pixelated",
           border: "3px solid hsl(120, 100%, 70%)",
           borderRadius: 0,
+          touchAction: "none",
         }}
       />
       <p className="text-[8px] text-muted-foreground tracking-widest uppercase">
