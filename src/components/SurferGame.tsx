@@ -105,10 +105,14 @@ export default function SurferGame() {
     };
   }, [startGame]);
 
-  const touchRef = useRef<number | null>(null);
+  const touchRef = useRef<{ startTouchX: number; startSurferX: number; currentTouchX: number } | null>(null);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const getTouchX = (e: TouchEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      return (e.touches[0].clientX - rect.left) / (rect.width / CANVAS_W);
+    };
     const handleTouchStart = (e: TouchEvent) => {
       e.preventDefault();
       const s = stateRef.current;
@@ -118,8 +122,7 @@ export default function SurferGame() {
         return;
       }
       if (s.gameState === "charSelect") {
-        const rect = canvas.getBoundingClientRect();
-        const tx = (e.touches[0].clientX - rect.left) / (rect.width / CANVAS_W);
+        const tx = getTouchX(e);
         if (tx < CANVAS_W / 2) s.skin = "male";
         else s.skin = "female";
         startGame();
@@ -130,18 +133,31 @@ export default function SurferGame() {
         setGameState("charSelect");
         return;
       }
+      if (s.gameState === "playing") {
+        // Check pause button tap (top-right 24x24 region)
+        const rect = canvas.getBoundingClientRect();
+        const tx = (e.touches[0].clientX - rect.left) / (rect.width / CANVAS_W);
+        const ty = (e.touches[0].clientY - rect.top) / (rect.height / CANVAS_H);
+        if (tx > CANVAS_W - 28 && ty < 28) {
+          s.gameState = "paused";
+          setGameState("paused");
+          return;
+        }
+        const touchX = getTouchX(e);
+        touchRef.current = { startTouchX: touchX, startSurferX: s.surferX, currentTouchX: touchX };
+        return;
+      }
       if (s.gameState === "paused") {
         s.gameState = "playing";
         setGameState("playing");
         return;
       }
-      const rect = canvas.getBoundingClientRect();
-      touchRef.current = (e.touches[0].clientX - rect.left) / (rect.width / CANVAS_W);
     };
     const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault();
-      const rect = canvas.getBoundingClientRect();
-      touchRef.current = (e.touches[0].clientX - rect.left) / (rect.width / CANVAS_W);
+      if (touchRef.current) {
+        touchRef.current.currentTouchX = getTouchX(e);
+      }
     };
     const handleTouchEnd = (e: TouchEvent) => { e.preventDefault(); touchRef.current = null; };
     canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
@@ -178,8 +194,8 @@ export default function SurferGame() {
         if (s.keys.left) s.surferX -= speed;
         if (s.keys.right) s.surferX += speed;
         if (touchRef.current !== null) {
-          const target = touchRef.current - SURFER_W / 2;
-          s.surferX += (target - s.surferX) * 0.15;
+          const targetX = touchRef.current.startSurferX + (touchRef.current.currentTouchX - touchRef.current.startTouchX);
+          s.surferX += (targetX - s.surferX) * 0.35;
         }
         s.surferX = Math.max(0, Math.min(CANVAS_W - SURFER_W, s.surferX));
 
@@ -367,6 +383,14 @@ export default function SurferGame() {
           ctx.fillText("LEVEL UP!", CANVAS_W / 2, CANVAS_H / 2 - 10);
           ctx.textAlign = "left";
         }
+        // On-screen pause button (top-right)
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
+        ctx.fillRect(CANVAS_W - 26, 2, 24, 20);
+        ctx.fillStyle = COLORS.hud;
+        ctx.font = "8px 'Press Start 2P'";
+        ctx.textAlign = "center";
+        ctx.fillText("II", CANVAS_W - 14, 16);
+        ctx.textAlign = "left";
       }
 
       // Pause overlay
@@ -378,8 +402,8 @@ export default function SurferGame() {
         ctx.fillStyle = COLORS.paused;
         ctx.fillText("PAUSED", CANVAS_W / 2, CANVAS_H / 2 - 10);
         ctx.font = "6px 'Press Start 2P'";
-        ctx.fillText("PRESS P TO", CANVAS_W / 2, CANVAS_H / 2 + 10);
-        ctx.fillText("CONTINUE", CANVAS_W / 2, CANVAS_H / 2 + 22);
+        ctx.fillText("PRESS P OR TAP", CANVAS_W / 2, CANVAS_H / 2 + 10);
+        ctx.fillText("TO CONTINUE", CANVAS_W / 2, CANVAS_H / 2 + 22);
         ctx.textAlign = "left";
       }
 
@@ -482,17 +506,20 @@ export default function SurferGame() {
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen gap-4 select-none">
+    <div className="flex flex-col items-center justify-center min-h-screen gap-4 select-none" style={{ touchAction: "none" }}>
       <canvas
         ref={canvasRef}
         width={CANVAS_W}
         height={CANVAS_H}
         style={{
-          width: CANVAS_W * SCALE,
-          height: CANVAS_H * SCALE,
+          width: `min(${CANVAS_W * SCALE}px, 100vw)`,
+          height: "auto",
+          aspectRatio: `${CANVAS_W}/${CANVAS_H}`,
+          maxHeight: "85vh",
           imageRendering: "pixelated",
           border: "3px solid hsl(120, 100%, 70%)",
           borderRadius: 0,
+          touchAction: "none",
         }}
       />
       <p className="text-[8px] text-muted-foreground tracking-widest uppercase">
