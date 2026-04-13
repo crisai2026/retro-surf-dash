@@ -1,39 +1,30 @@
 
 
-## Plan: Gameplay Overhaul — Difficulty, Lives Cap, Chain Multiplier, Rebalanced Spawns
+## Plan: Improve Mobile Touch Controls
 
-All changes in `src/components/SurferGame.tsx`.
+The current touch control uses absolute positioning (surfer moves toward where you touch) with a slow lerp factor of 0.15, making it feel sluggish. The canvas is also fixed at 480x640px which may be too small or overflow on phones.
 
-### 1. Lives cap at 5
-- When rescuing a swimmer: if `s.lives >= 5`, add +5 to score instead of `s.lives++`.
-- Still add follower to chain regardless.
+### Changes
 
-### 2. Progressive difficulty every 25 points
-- Add `level` to state (starts at 0). Recalculate as `Math.floor(s.score / 25)`.
-- When level increases, set a `levelUpTimer = 90` to flash "LEVEL UP!" on screen.
-- Object speeds multiplied by `1 + level * 0.1` (shark base 2.2, wave 1.8, swimmer 1.5 — all scale).
-- Shark spawn rate increases by `+0.02 * level` (capped so it doesn't exceed ~60%).
+#### 1. Faster, more responsive touch tracking (`SurferGame.tsx`)
+- Increase the lerp factor from `0.15` to `0.35` for snappier response to finger movement
+- Add **relative drag mode**: on `touchstart`, record the initial touch X and the surfer's current X. On `touchmove`, move the surfer by the delta from the initial touch position (1:1 finger-to-surfer mapping), not toward an absolute target. This feels much more natural on mobile.
 
-### 3. HUD: "NEXT: X" display
-- Calculate `nextMilestone = (Math.floor(s.score / 25) + 1) * 25`.
-- Render below score text.
+#### 2. Make canvas scale to fit phone screens (`SurferGame.tsx`)
+- Replace the fixed `SCALE = 2` sizing with a dynamic style that uses `max-width: 100vw` and `max-height: 85vh` while preserving aspect ratio
+- The canvas native resolution stays 240x320, but the CSS size adapts to the screen
+- Add `touch-action: none` CSS to prevent browser scroll/zoom interference
 
-### 4. Chain multiplier for waves
-- Wave points = `1 + Math.floor(s.followers.length / 2)`.
-- Add to `s.score` accordingly.
+#### 3. Add on-screen pause button for mobile (`SurferGame.tsx`)
+- During gameplay, render a small "⏸" tap target in the top-right corner of the canvas (drawn on the canvas itself)
+- Detect taps in that region to toggle pause, since phones have no P key
 
-### 5. Rebalanced spawn rates
-- Change from `0.55 / 0.965 / 1.0` thresholds to:
-  - `r < 0.35` → shark
-  - `r < 0.85` → wave (50%)
-  - else → swimmer (15%)
-- Shark threshold adjusted dynamically: `0.35 + 0.02 * level`.
-
-### 6. "LEVEL UP!" flash
-- When `levelUpTimer > 0`, draw centered yellow text "LEVEL UP!" and decrement timer each frame.
+#### 4. Prevent page scroll and bounce on touch (`SurferGame.tsx`)
+- Add `touch-action: none` to the canvas element and the wrapper div to fully prevent scroll interference during gameplay
 
 ### Technical details
-- Add `level`, `levelUpTimer` to `stateRef`.
-- Speed scaling applied inline in the object movement section: `o.y += baseSpeed * (1 + s.level * 0.1)`.
-- Spawn thresholds recalculated each spawn frame using current level.
+- Touch state changes from a single `touchRef` number to an object: `{ startTouchX, startSurferX, currentTouchX }`
+- Movement calculation: `surferX = startSurferX + (currentTouchX - startTouchX)` (clamped to bounds)
+- Canvas style: `width: min(${CANVAS_W * SCALE}px, 100vw)`, `height: auto`, `aspect-ratio: 240/320`
+- Pause button: 20x20 region at top-right; check touch coordinates against it in `handleTouchStart`
 
